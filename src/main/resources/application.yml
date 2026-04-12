@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: repo-index
+  ai:
+    ollama:
+      base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
+      chat:
+        model: ${OLLAMA_MODEL:codellama:13b}
+        options:
+          temperature: 0.2
+          num-predict: 4096
+  threads:
+    virtual:
+      enabled: true
+
+server:
+  port: ${SERVER_PORT:8080}
+
+repoindex:
+  max-retries: ${MAX_RETRIES:3}
+  index:
+    max-file-size-kb: ${MAX_FILE_SIZE_KB:500}
+    supported-extensions:
+      - .java
+      - .kt
+      - .kts
+      - .scala

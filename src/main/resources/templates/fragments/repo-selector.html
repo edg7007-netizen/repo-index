@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+<!-- Fragment: repo list -->
+<ul class="repo-list" th:fragment="repo-list">
+    <li th:each="repo : ${repos}"
+        class="repo-item"
+        th:attr="onclick='selectRepo(\'' + ${repo.id} + '\')'">
+        <div class="name" th:text="${repo.name}">repo-name</div>
+        <div class="meta">
+            <span th:text="${repo.fileCount} + ' files'">0 files</span>
+            <span th:each="entry : ${repo.languageBreakdown}"
+                  th:text="' · ' + ${entry.key} + ': ' + ${entry.value}"></span>
+        </div>
+    </li>
+</ul>
+
+<!-- Fragment: error message -->
+<div th:fragment="error-message" class="error-toast" th:text="${error}">Error</div>
+</body>
+</html>

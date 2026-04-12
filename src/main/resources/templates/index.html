@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repo Index — Code Intelligence Chat</title>
+    <script src="/webjars/htmx.org/2.0.8/dist/htmx.min.js"></script>
+    <style>
+        :root {
+            --bg: #1a1b26;
+            --surface: #24283b;
+            --surface2: #2f3349;
+            --text: #c0caf5;
+            --text-dim: #565f89;
+            --accent: #7aa2f7;
+            --accent2: #bb9af7;
+            --green: #9ece6a;
+            --red: #f7768e;
+            --border: #3b4261;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 12px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        header h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        header h1 span {
+            color: var(--accent2);
+        }
+
+        .sidebar-toggle {
+            background: none;
+            border: none;
+            color: var(--text);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .main-layout {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .sidebar {
+            width: 300px;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
+            gap: 12px;
+        }
+
+        .sidebar h2 {
+            font-size: 0.875rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-dim);
+        }
+
+        .repo-form {
+            display: flex;
+            gap: 8px;
+        }
+
+        .repo-form input {
+            flex: 1;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            color: var(--text);
+            font-size: 0.875rem;
+        }
+
+        .repo-form input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .btn {
+            background: var(--accent);
+            color: var(--bg);
+            border: none;
+            border-radius: 6px;
+            padding: 8px 16px;
+            font-size: 0.875rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .btn:hover { opacity: 0.9; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-sm {
+            padding: 4px 10px;
+            font-size: 0.75rem;
+        }
+
+        .repo-list {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .repo-item {
+            background: var(--surface2);
+            border-radius: 6px;
+            padding: 10px 12px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: border-color 0.2s;
+        }
+
+        .repo-item:hover { border-color: var(--accent); }
+        .repo-item.selected { border-color: var(--accent); background: var(--bg); }
+
+        .repo-item .name {
+            font-weight: 600;
+            font-size: 0.875rem;
+        }
+
+        .repo-item .meta {
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            margin-top: 2px;
+        }
+
+        .chat-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .message {
+            max-width: 75%;
+            padding: 12px 16px;
+            border-radius: 12px;
+            font-size: 0.9375rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .message.user {
+            align-self: flex-end;
+            background: var(--accent);
+            color: var(--bg);
+            border-bottom-right-radius: 4px;
+        }
+
+        .message.assistant {
+            align-self: flex-start;
+            background: var(--surface2);
+            color: var(--text);
+            border-bottom-left-radius: 4px;
+        }
+
+        .message .recipe-toggle {
+            font-size: 0.75rem;
+            color: var(--accent2);
+            cursor: pointer;
+            margin-top: 8px;
+            display: block;
+        }
+
+        .recipe-code {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px;
+            margin-top: 8px;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.8125rem;
+            overflow-x: auto;
+            display: none;
+        }
+
+        .recipe-code.show { display: block; }
+
+        .empty-state {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-dim);
+            font-size: 1.125rem;
+        }
+
+        .chat-input {
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            padding: 16px 24px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .chat-input textarea {
+            flex: 1;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 12px 16px;
+            color: var(--text);
+            font-size: 0.9375rem;
+            font-family: inherit;
+            resize: none;
+            min-height: 48px;
+            max-height: 150px;
+        }
+
+        .chat-input textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+
+        .indicator {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-dim);
+            font-size: 0.875rem;
+        }
+
+        .htmx-request .indicator { display: flex; }
+        .htmx-request .btn { display: none; }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--border);
+            border-top: 2px solid var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .error-toast {
+            background: var(--red);
+            color: white;
+            padding: 10px 16px;
+            border-radius: 6px;
+            margin: 8px;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Repo<span>Index</span></h1>
+        <span style="color: var(--text-dim); font-size: 0.875rem;">LLM-Powered Code Intelligence</span>
+    </header>
+
+    <div class="main-layout">
+        <!-- Sidebar: Repository Management -->
+        <div class="sidebar">
+            <h2>Repositories</h2>
+
+            <form class="repo-form"
+                  hx-post="/chat/index-repo"
+                  hx-target="#repo-list"
+                  hx-swap="innerHTML"
+                  hx-indicator=".sidebar">
+                <input type="text" name="path" placeholder="/path/to/repository" required>
+                <button class="btn btn-sm" type="submit">Index</button>
+            </form>
+
+            <div id="repo-list">
+                <ul class="repo-list" th:fragment="repo-list">
+                    <li th:each="repo : ${repos}"
+                        th:class="'repo-item' + (${selectedRepoId} == ${repo.id} ? ' selected' : '')"
+                        th:attr="onclick='selectRepo(\'' + ${repo.id} + '\')'">
+                        <div class="name" th:text="${repo.name}">repo-name</div>
+                        <div class="meta">
+                            <span th:text="${repo.fileCount} + ' files'">0 files</span>
+                            <span th:each="entry : ${repo.languageBreakdown}"
+                                  th:text="' · ' + ${entry.key} + ': ' + ${entry.value}"></span>
+                        </div>
+                    </li>
+                    <li th:if="${#lists.isEmpty(repos)}" style="color: var(--text-dim); font-size: 0.875rem; padding: 12px;">
+                        No repositories indexed yet. Enter a path above.
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Chat Area -->
+        <div class="chat-container">
+            <div id="messages" class="messages">
+                <div class="empty-state" id="empty-state">
+                    <div style="text-align: center;">
+                        <div style="font-size: 2rem; margin-bottom: 8px;">🔍</div>
+                        <div>Select a repository and ask questions about its code</div>
+                        <div style="font-size: 0.875rem; margin-top: 4px;">
+                            e.g. "Find all classes that implement Repository"
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <form class="chat-input" id="chat-form"
+                  hx-post="/chat/send"
+                  hx-target="#messages"
+                  hx-swap="beforeend"
+                  hx-indicator="#chat-form"
+                  hx-on::after-request="this.querySelector('textarea').value = ''; scrollToBottom();">
+                <input type="hidden" name="repositoryId" id="selected-repo-id" value="">
+                <textarea name="query"
+                          placeholder="Ask a question about the code..."
+                          rows="1"
+                          onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); this.closest('form').requestSubmit()}"
+                          oninput="this.style.height='auto'; this.style.height=this.scrollHeight+'px'"></textarea>
+                <button class="btn" type="submit">Send</button>
+                <div class="indicator">
+                    <div class="spinner"></div>
+                    <span>Analyzing...</span>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        let selectedRepoId = '';
+
+        function selectRepo(id) {
+            selectedRepoId = id;
+            document.getElementById('selected-repo-id').value = id;
+
+            document.querySelectorAll('.repo-item').forEach(el => el.classList.remove('selected'));
+            event.currentTarget.classList.add('selected');
+        }
+
+        function scrollToBottom() {
+            const messages = document.getElementById('messages');
+            messages.scrollTop = messages.scrollHeight;
+
+            const empty = document.getElementById('empty-state');
+            if (empty) empty.remove();
+        }
+
+        function toggleRecipe(el) {
+            const code = el.nextElementSibling;
+            code.classList.toggle('show');
+            el.textContent = code.classList.contains('show') ? '▼ Hide generated recipe' : '▶ Show generated recipe';
+        }
+    </script>
+</body>
+</html>

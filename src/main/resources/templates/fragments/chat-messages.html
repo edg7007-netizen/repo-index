@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<body>
+<!-- Fragment: message pair (user + assistant) -->
+<div th:fragment="message-pair">
+    <div class="message user" th:text="${userMessage.content}">User message</div>
+    <div class="message assistant">
+        <div th:utext="${assistantMessage.content}">Assistant response</div>
+        <div th:if="${generatedRecipe != null}">
+            <span class="recipe-toggle" onclick="toggleRecipe(this)">▶ Show generated recipe</span>
+            <pre class="recipe-code" th:text="${generatedRecipe}">recipe code</pre>
+        </div>
+    </div>
+    <script>scrollToBottom();</script>
+</div>
+</body>
+</html>
