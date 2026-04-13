@@ -185,6 +185,7 @@ class QueryOrchestrator(
         // Step 2: Compile with retry
         var compiledRecipe: Recipe? = null
         var lastError: String? = null
+        val errorHistory = mutableListOf<String>()
 
         for (attempt in 1..properties.maxRetries) {
             val result = recipeCompilerService.compile(recipeCode)
@@ -194,11 +195,18 @@ class QueryOrchestrator(
             }
 
             lastError = result.error
+            errorHistory.add(lastError ?: "Unknown error")
             log.warn("Compilation attempt {}/{} failed: {}", attempt, properties.maxRetries, lastError)
 
             if (attempt < properties.maxRetries) {
                 try {
-                    recipeCode = recipeGeneratorService.fixRecipeCode(recipeCode, lastError ?: "Unknown error", attempt)
+                    recipeCode = recipeGeneratorService.fixRecipeCode(
+                        originalCode = recipeCode,
+                        error = lastError ?: "Unknown error",
+                        attempt = attempt,
+                        query = query,
+                        previousErrors = errorHistory.dropLast(1)
+                    )
                 } catch (e: Exception) {
                     log.error("Failed to get fix from LLM: {}", e.message)
                     break

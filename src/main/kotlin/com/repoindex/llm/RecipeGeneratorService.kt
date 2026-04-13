@@ -54,19 +54,50 @@ class RecipeGeneratorService(
         return extractKotlinCode(response)
     }
 
-    fun fixRecipeCode(originalCode: String, error: String, attempt: Int): String {
+    fun fixRecipeCode(
+        originalCode: String,
+        error: String,
+        attempt: Int,
+        query: String = "",
+        previousErrors: List<String> = emptyList()
+    ): String {
+        val truncatedError = truncateError(error)
+
+        val previousAttemptsSection = if (previousErrors.isNotEmpty()) {
+            val history = previousErrors.mapIndexed { i, err ->
+                "Attempt ${i + 1}: ${truncateError(err)}"
+            }.joinToString("\n|")
+            """
+            |
+            |## Previous Failed Attempts
+            |The following fixes were already tried and FAILED. Do NOT repeat the same approach.
+            |$history
+            """.trimIndent()
+        } else ""
+
+        val querySection = if (query.isNotBlank()) {
+            """
+            |
+            |## Original User Query
+            |The recipe was generated to answer this question: "$query"
+            |Make sure the fixed recipe still addresses this query.
+            """.trimIndent()
+        } else ""
+
         val prompt = """
             |The following OpenRewrite recipe code failed to compile.
+            |$querySection
             |
             |## Original Code
             |```kotlin
             |$originalCode
             |```
             |
-            |## Compilation Error
+            |## Compilation Error (Attempt $attempt)
             |```
-            |$error
+            |$truncatedError
             |```
+            |$previousAttemptsSection
             |
             |## Important API Rules
             |- `JavaIsoVisitor` does NOT have a generic `visit` method. Override specific methods like
@@ -74,6 +105,10 @@ class RecipeGeneratorService(
             |- Each visitor method must return the SAME type it receives (e.g. `visitClassDeclaration` returns `J.ClassDeclaration`)
             |- Always call `super.visitXxx(node, p)` first, then return the result or a marked version
             |- Use `SearchResult.found(node, "description")` to mark findings
+            |- Do NOT use methods or types that don't exist in the OpenRewrite API
+            |- `J.ClassDeclaration` uses `.extends` and `.implements` (not `extends_` or `implements_`)
+            |- `SearchResult.found()` returns a platform type — always cast the result (e.g. `as J.ClassDeclaration`)
+            |- `super.visitXxx()` returns a platform type — always use `!!` on the result
             |
             |## Working Example
             |```kotlin
@@ -93,7 +128,7 @@ class RecipeGeneratorService(
             |
             |## Instructions
             |Fix the code to resolve the compilation error. Return ONLY the corrected Kotlin code.
-            |This is attempt $attempt. Make sure the fix is correct.
+            |This is attempt $attempt. The previous approach did not work — try a DIFFERENT fix strategy.
             |
             |The corrected code must:
             |1. Be a COMPLETE, compilable Kotlin class that extends `org.openrewrite.Recipe`
@@ -110,6 +145,25 @@ class RecipeGeneratorService(
             .content() ?: throw RuntimeException("LLM returned empty response for fix attempt $attempt")
 
         return extractKotlinCode(response)
+    }
+
+    /**
+     * Truncates excessively long error messages (e.g. ScriptException stack traces)
+     * to help the LLM focus on the key error information.
+     */
+    private fun truncateError(error: String, maxLines: Int = 30, maxLength: Int = 2000): String {
+        val lines = error.lines()
+        val truncatedLines = if (lines.size > maxLines) {
+            lines.take(maxLines) + listOf("... (${lines.size - maxLines} more lines truncated)")
+        } else {
+            lines
+        }
+        val result = truncatedLines.joinToString("\n")
+        return if (result.length > maxLength) {
+            result.take(maxLength) + "\n... (truncated)"
+        } else {
+            result
+        }
     }
 
     fun formatAnswer(query: String, findings: List<String>): String {
