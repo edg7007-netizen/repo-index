@@ -28,12 +28,13 @@ class ChatController(
     @PostMapping("/chat/index-repo")
     fun indexRepo(@RequestParam path: String, model: Model): String {
         return try {
-            repositoryIndexService.indexRepository(path)
+            val summary = repositoryIndexService.indexRepository(path)
             model.addAttribute("repos", repositoryIndexService.listRepositories())
+            model.addAttribute("selectedRepoId", summary.id)
             "fragments/repo-selector :: repo-list"
         } catch (e: Exception) {
             model.addAttribute("error", "Failed to index: ${e.message}")
-            "fragments/error :: error-message"
+            "fragments/repo-selector :: error-message"
         }
     }
 
@@ -43,6 +44,18 @@ class ChatController(
         @RequestParam query: String,
         model: Model
     ): String {
+        // Validate that a repository was selected
+        if (repositoryId.isBlank()) {
+            val userMessage = ChatMessage(role = ChatMessage.Role.USER, content = query)
+            val assistantMessage = ChatMessage(
+                role = ChatMessage.Role.ASSISTANT,
+                content = "⚠️ Please select a repository from the sidebar before asking a question."
+            )
+            model.addAttribute("userMessage", userMessage)
+            model.addAttribute("assistantMessage", assistantMessage)
+            return "fragments/chat-messages :: message-pair"
+        }
+
         val sessionId = repositoryId // simplified: one chat per repo
         val history = chatHistories.getOrPut(sessionId) { mutableListOf() }
 

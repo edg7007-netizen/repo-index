@@ -388,7 +388,7 @@
                   hx-on::after-request="this.querySelector('textarea').value = ''; scrollToBottom();">
                 <input type="hidden" name="repositoryId" id="selected-repo-id" value="">
                 <textarea name="query"
-                          placeholder="Ask a question about the code..."
+                          placeholder="Select a repository above, then ask a question..."
                           rows="1"
                           onkeydown="if(event.key==='Enter' && !event.shiftKey){event.preventDefault(); this.closest('form').requestSubmit()}"
                           oninput="this.style.height='auto'; this.style.height=this.scrollHeight+'px'"></textarea>
@@ -410,6 +410,12 @@
 
             document.querySelectorAll('.repo-item').forEach(el => el.classList.remove('selected'));
             event.currentTarget.classList.add('selected');
+
+            // Update placeholder to show ready state
+            const textarea = document.querySelector('#chat-form textarea');
+            if (textarea) {
+                textarea.placeholder = 'Ask a question about the code...';
+            }
         }
 
         function scrollToBottom() {

@@ -4,7 +4,7 @@
 <!-- Fragment: repo list -->
 <ul class="repo-list" th:fragment="repo-list">
     <li th:each="repo : ${repos}"
-        class="repo-item"
+        th:class="'repo-item' + (${selectedRepoId} != null and ${selectedRepoId} == ${repo.id} ? ' selected' : '')"
         th:attr="onclick='selectRepo(\'' + ${repo.id} + '\')'">
         <div class="name" th:text="${repo.name}">repo-name</div>
         <div class="meta">
@@ -13,7 +13,20 @@
                   th:text="' · ' + ${entry.key} + ': ' + ${entry.value}"></span>
         </div>
     </li>
+    <li th:if="${#lists.isEmpty(repos)}" style="color: var(--text-dim); font-size: 0.875rem; padding: 12px;">
+        No repositories indexed yet. Enter a path above.
+    </li>
 </ul>
+<!-- Auto-select the newly indexed repo -->
+<script th:if="${selectedRepoId != null}" th:inline="javascript">
+    (function() {
+        var repoId = /*[[${selectedRepoId}]]*/ '';
+        if (repoId) {
+            selectedRepoId = repoId;
+            document.getElementById('selected-repo-id').value = repoId;
+        }
+    })();
+</script>
 
 <!-- Fragment: error message -->
 <div th:fragment="error-message" class="error-toast" th:text="${error}">Error</div>
