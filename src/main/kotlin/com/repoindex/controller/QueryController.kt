@@ -6,6 +6,11 @@ import com.repoindex.service.QueryOrchestrator
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
 
+data class OrganizationQueryRequest(
+    val organizationId: String,
+    val query: String
+)
+
 @RestController
 @RequestMapping("/api/query")
 class QueryController(
@@ -15,6 +20,16 @@ class QueryController(
     @PostMapping
     fun query(@RequestBody request: QueryRequest): ResponseEntity<QueryResponse> {
         val response = queryOrchestrator.processQuery(request.repositoryId, request.query)
+        return if (response.error != null) {
+            ResponseEntity.badRequest().body(response)
+        } else {
+            ResponseEntity.ok(response)
+        }
+    }
+
+    @PostMapping("/org")
+    fun queryOrganization(@RequestBody request: OrganizationQueryRequest): ResponseEntity<QueryResponse> {
+        val response = queryOrchestrator.processOrganizationQuery(request.organizationId, request.query)
         return if (response.error != null) {
             ResponseEntity.badRequest().body(response)
         } else {

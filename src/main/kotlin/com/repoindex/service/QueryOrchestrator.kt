@@ -4,6 +4,7 @@ import com.repoindex.config.RepoIndexProperties
 import com.repoindex.llm.QueryClassifierService
 import com.repoindex.llm.QueryClassifierService.ClassificationResult.Strategy
 import com.repoindex.llm.RecipeGeneratorService
+import com.repoindex.model.AnalysisFact
 import com.repoindex.model.IndexedRepository
 import com.repoindex.model.QueryResponse
 import com.repoindex.model.RecipeResult
@@ -20,7 +21,9 @@ class QueryOrchestrator(
     private val recipeExecutionService: RecipeExecutionService,
     private val queryClassifierService: QueryClassifierService,
     private val recipeCatalog: RecipeCatalog,
-    private val properties: RepoIndexProperties
+    private val properties: RepoIndexProperties,
+    private val analysisService: AnalysisService,
+    private val organizationService: OrganizationService
 ) {
     private val log = LoggerFactory.getLogger(javaClass)
 
@@ -64,6 +67,87 @@ class QueryOrchestrator(
                 log.info("No catalog match — falling back to dynamic recipe generation")
                 generateAndExecute(query, repo)
             }
+        }
+    }
+
+    /**
+     * Process a query across ALL repositories in an organization.
+     * Uses pre-computed analysis facts for fast cross-repo querying.
+     */
+    fun processOrganizationQuery(organizationId: String, query: String): QueryResponse {
+        val org = organizationService.getOrganization(organizationId)
+            ?: return QueryResponse(answer = "Organization not found: $organizationId", error = "NOT_FOUND")
+
+        val repoIds = org.repositoryIds
+        if (repoIds.isEmpty()) {
+            return QueryResponse(
+                answer = "Organization '${org.name}' has no repositories. Add repositories first.",
+                error = "EMPTY_ORG"
+            )
+        }
+
+        log.info("Processing cross-repo query for org '{}' across {} repos", org.name, repoIds.size)
+
+        // Classify the query to determine search terms
+        val classification = queryClassifierService.classify(query)
+        log.info("Org query classified as {} with search terms {}", classification.strategy, classification.searchTerms)
+
+        // For cross-repo queries, we always use the pre-computed fact store
+        val facts: List<AnalysisFact> = when (classification.strategy) {
+            Strategy.ANALYZE -> {
+                analysisService.searchFacts(repoIds, classification.searchTerms)
+            }
+            Strategy.CATALOG, Strategy.COMPOSE -> {
+                // Use facts from the specific recipe types
+                val factTypes = classification.recipeIds.mapNotNull { recipeIdToFactType(it) }.toSet()
+                if (factTypes.isNotEmpty()) {
+                    analysisService.searchFacts(repoIds, emptyList(), factTypes)
+                } else {
+                    analysisService.getFactsForRepositories(repoIds)
+                }
+            }
+            Strategy.GENERATE -> {
+                // For GENERATE queries, search all facts with query words as terms
+                val terms = query.split("\\s+".toRegex())
+                    .filter { it.length > 3 }
+                    .take(10)
+                analysisService.searchFacts(repoIds, terms)
+            }
+        }
+
+        log.info("Cross-repo query found {} matching facts", facts.size)
+
+        // Convert facts to RecipeResults for the existing formatting pipeline
+        val results = facts.groupBy { it.filePath }.map { (filePath, fileFacts) ->
+            RecipeResult(
+                filePath = filePath,
+                matches = fileFacts.map { "[${it.repositoryId.take(8)}] ${it.description}" }
+            )
+        }
+
+        // Build repo context for the answer
+        val repoNames = repoIds.mapNotNull { repositoryIndexService.getRepository(it)?.name }
+        val contextNote = "Cross-repo analysis across: ${repoNames.joinToString(", ")}"
+
+        return buildResponse(
+            query = query,
+            executionResults = results,
+            generatedRecipe = contextNote
+        )
+    }
+
+    private fun recipeIdToFactType(recipeId: String): AnalysisFact.FactType? {
+        return when (recipeId) {
+            "list-classes" -> AnalysisFact.FactType.CLASS_DECLARATION
+            "list-methods" -> AnalysisFact.FactType.METHOD_DECLARATION
+            "find-annotations" -> AnalysisFact.FactType.ANNOTATION_USAGE
+            "list-imports" -> AnalysisFact.FactType.IMPORT_STATEMENT
+            "find-interfaces" -> AnalysisFact.FactType.INTERFACE_DECLARATION
+            "find-inheritance" -> AnalysisFact.FactType.INHERITANCE_RELATION
+            "find-fields" -> AnalysisFact.FactType.FIELD_DECLARATION
+            "find-method-calls" -> AnalysisFact.FactType.METHOD_CALL
+            "find-endpoints" -> AnalysisFact.FactType.ENDPOINT_MAPPING
+            else -> null
         }
     }
 
