@@ -90,6 +90,18 @@ class RecipeCatalog {
             keywords = listOf("calls", "invocations", "method calls", "find calls",
                 "where is called", "who calls", "usage", "call sites"),
             recipe = FindMethodCallsRecipe()
+        ),
+        CatalogEntry(
+            id = "find-endpoints",
+            displayName = "Find Endpoints",
+            description = "Finds Spring MVC REST endpoint mappings (@GetMapping, @PostMapping, " +
+                "@PutMapping, @DeleteMapping, @PatchMapping, @RequestMapping). " +
+                "Use for: listing endpoints, finding API routes, REST controllers, HTTP mappings.",
+            keywords = listOf("endpoint", "endpoints", "API", "apis", "routes", "REST",
+                "controller", "mapping", "GetMapping", "PostMapping", "RequestMapping",
+                "URL", "URLs", "paths", "HTTP", "web services", "what endpoints",
+                "list endpoints", "find endpoints", "API endpoints"),
+            recipe = FindEndpointsRecipe()
         )
     )
 
