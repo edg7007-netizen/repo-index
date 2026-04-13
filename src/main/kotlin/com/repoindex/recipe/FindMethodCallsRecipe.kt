@@ -19,9 +19,13 @@ class FindMethodCallsRecipe : Recipe() {
             ): J.MethodInvocation {
                 val mi = super.visitMethodInvocation(method, p)!!
                 val select = mi.select?.toString()?.let { "$it." } ?: ""
-                val args = mi.arguments.joinToString(", ") { it.toString().take(30) }
+                val args = mi.arguments.joinToString(", ") { it.toString().take(MAX_ARG_DISPLAY_LENGTH) }
                 return SearchResult.found(mi, "Call: $select${mi.simpleName}($args)") as J.MethodInvocation
             }
         }
+    }
+
+    companion object {
+        private const val MAX_ARG_DISPLAY_LENGTH = 30
     }
 }
