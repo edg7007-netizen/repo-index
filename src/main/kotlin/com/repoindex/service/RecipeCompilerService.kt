@@ -50,7 +50,8 @@ class RecipeCompilerService {
     private fun buildScript(kotlinCode: String): String {
         // The generated code should define a Recipe class.
         // We wrap it in a script that instantiates it.
-        val className = extractClassName(kotlinCode)
+        val cleanedCode = sanitizeGeneratedCode(kotlinCode)
+        val className = extractClassName(cleanedCode)
 
         return """
             |import org.openrewrite.*
@@ -59,10 +60,35 @@ class RecipeCompilerService {
             |import org.openrewrite.kotlin.tree.*
             |import org.openrewrite.marker.SearchResult
             |
-            |$kotlinCode
+            |$cleanedCode
             |
             |$className()
         """.trimMargin()
+    }
+
+    /**
+     * Removes package declarations (invalid in .kts scripts) and duplicate imports
+     * that are already provided by the script wrapper.
+     */
+    private fun sanitizeGeneratedCode(code: String): String {
+        val providedImports = setOf(
+            "import org.openrewrite.*",
+            "import org.openrewrite.java.*",
+            "import org.openrewrite.java.tree.*",
+            "import org.openrewrite.kotlin.tree.*",
+            "import org.openrewrite.marker.SearchResult"
+        )
+
+        return code.lines()
+            .filter { line ->
+                val trimmed = line.trim()
+                // Remove package declarations (invalid in .kts)
+                !trimmed.startsWith("package ") &&
+                    // Remove duplicate wildcard/exact imports already in the wrapper
+                    trimmed !in providedImports
+            }
+            .joinToString("\n")
+            .trim()
     }
 
     private fun extractClassName(code: String): String {

@@ -38,7 +38,10 @@ class RecipeGeneratorService(
             |2. Have a unique recipe name based on the query
             |3. Use `org.openrewrite.java.JavaIsoVisitor` for Java/Kotlin AST traversal
             |4. Collect findings via marker or print statements that can be captured
-            |5. Package: `com.repoindex.generated`
+            |5. Do NOT include a `package` declaration — the code will be evaluated as a Kotlin script
+            |6. Do NOT include import statements for `org.openrewrite.*`, `org.openrewrite.java.*`,
+            |   `org.openrewrite.java.tree.*`, `org.openrewrite.kotlin.tree.*`, or
+            |   `org.openrewrite.marker.SearchResult` — these are already imported
         """.trimMargin()
 
         log.info("Generating recipe for query: {}", query)
