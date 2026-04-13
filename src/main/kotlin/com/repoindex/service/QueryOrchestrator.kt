@@ -89,9 +89,10 @@ class QueryOrchestrator(
         }
 
         // Step 4: Format answer using LLM
+        // Use only match descriptions (from SearchResult markers) for the LLM summary.
+        // Raw diffs are noisy and cause the LLM to misinterpret findings as PR changes.
         val findings = executionResults.flatMap { result ->
-            result.matches.map { "${result.filePath}: $it" } +
-                result.changes.map { "${result.filePath}: $it" }
+            result.matches.map { "${result.filePath}: $it" }
         }
 
         val answer = try {

@@ -117,18 +117,29 @@ class RecipeGeneratorService(
             return "No results found for your query: \"$query\""
         }
 
-        val prompt = """
-            |The user asked: "$query"
+        val systemMessage = """
+            |You are a code analysis assistant. You answer user questions about their codebase
+            |based ONLY on the concrete findings provided below. These findings come from running
+            |an automated code analysis recipe (OpenRewrite) against the user's repository.
             |
-            |The code analysis produced these findings:
+            |Rules:
+            |- Answer ONLY based on the provided findings. Do NOT speculate or add information not in the findings.
+            |- Do NOT mention pull requests, PRs, commits, diffs, or repository problems.
+            |- If the findings are a list of items (e.g. classes, methods), summarize them clearly with a count.
+            |- Keep your answer focused, concise, and directly relevant to the user's question.
+            |- Use markdown formatting for readability.
+        """.trimMargin()
+
+        val userMessage = """
+            |Question: "$query"
+            |
+            |Analysis findings (${findings.size} results):
             |${findings.joinToString("\n") { "- $it" }}
-            |
-            |Provide a clear, concise summary answering the user's question based on these findings.
-            |Use markdown formatting for readability.
         """.trimMargin()
 
         return chatClient.prompt()
-            .user(prompt)
+            .system(systemMessage)
+            .user(userMessage)
             .call()
             .content() ?: findings.joinToString("\n")
     }

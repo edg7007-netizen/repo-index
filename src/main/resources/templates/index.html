@@ -213,6 +213,52 @@
 
         .recipe-code.show { display: block; }
 
+        .recipe-results {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 10px 12px;
+            margin-top: 8px;
+            font-size: 0.8125rem;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .recipe-results.show { display: block; }
+
+        .result-item {
+            margin-bottom: 8px;
+        }
+
+        .result-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .result-file {
+            font-weight: 600;
+            color: var(--accent);
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.8125rem;
+        }
+
+        .result-item ul {
+            list-style: none;
+            padding-left: 12px;
+            margin-top: 4px;
+        }
+
+        .result-item li {
+            color: var(--text-dim);
+            font-size: 0.8125rem;
+            padding: 1px 0;
+        }
+
+        .result-item li::before {
+            content: "›";
+            color: var(--green);
+            margin-right: 6px;
+        }
+
         .empty-state {
             flex: 1;
             display: flex;
@@ -375,9 +421,17 @@
         }
 
         function toggleRecipe(el) {
-            const code = el.nextElementSibling;
-            code.classList.toggle('show');
-            el.textContent = code.classList.contains('show') ? '▼ Hide generated recipe' : '▶ Show generated recipe';
+            const sibling = el.nextElementSibling;
+            const isCode = sibling.classList.contains('recipe-code');
+            const isResults = sibling.classList.contains('recipe-results');
+            if (isCode) {
+                sibling.classList.toggle('show');
+                el.textContent = sibling.classList.contains('show') ? '▼ Hide generated recipe' : '▶ Show generated recipe';
+            } else if (isResults) {
+                const visible = sibling.style.display !== 'none';
+                sibling.style.display = visible ? 'none' : 'block';
+                el.textContent = visible ? '▶ Show analysis results' : '▼ Hide analysis results';
+            }
         }
     </script>
 </body>

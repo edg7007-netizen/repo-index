@@ -58,6 +58,7 @@ class ChatController(
         model.addAttribute("userMessage", userMessage)
         model.addAttribute("assistantMessage", assistantMessage)
         model.addAttribute("generatedRecipe", response.generatedRecipe)
+        model.addAttribute("executionResults", response.executionResults)
 
         return "fragments/chat-messages :: message-pair"
     }

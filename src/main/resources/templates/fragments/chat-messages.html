@@ -6,6 +6,17 @@
     <div class="message user" th:text="${userMessage.content}">User message</div>
     <div class="message assistant">
         <div th:utext="${assistantMessage.content}">Assistant response</div>
+        <div th:if="${executionResults != null and !executionResults.isEmpty()}">
+            <span class="recipe-toggle" onclick="toggleRecipe(this)">▶ Show analysis results</span>
+            <div class="recipe-results" style="display: none;">
+                <div th:each="result : ${executionResults}" class="result-item">
+                    <div class="result-file" th:text="${result.filePath}">file.java</div>
+                    <ul th:if="${!result.matches.isEmpty()}">
+                        <li th:each="match : ${result.matches}" th:text="${match}">match</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
         <div th:if="${generatedRecipe != null}">
             <span class="recipe-toggle" onclick="toggleRecipe(this)">▶ Show generated recipe</span>
             <pre class="recipe-code" th:text="${generatedRecipe}">recipe code</pre>
