@@ -57,16 +57,20 @@ class FindEndpointsRecipe : Recipe() {
             }
 
             private fun findEnclosingMethodName(): String? {
-                var c = cursor.parentTreeCursor
-                while (true) {
-                    val value = c.getValue<Any>()
-                    if (value is J.MethodDeclaration) {
-                        return value.simpleName
+                try {
+                    var c = cursor.parentTreeCursor
+                    while (true) {
+                        val value = c.getValue<Any>()
+                        if (value is J.MethodDeclaration) {
+                            return value.simpleName
+                        }
+                        if (value is J.CompilationUnit) {
+                            break
+                        }
+                        c = c.parentTreeCursor
                     }
-                    if (value is J.CompilationUnit) {
-                        break
-                    }
-                    c = c.parentTreeCursor
+                } catch (_: Exception) {
+                    // Reached the root of the cursor hierarchy
                 }
                 return null
             }
