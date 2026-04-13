@@ -4,6 +4,8 @@ import com.repoindex.model.IndexedRepository
 import com.repoindex.model.RecipeResult
 import org.openrewrite.InMemoryExecutionContext
 import org.openrewrite.Recipe
+import org.openrewrite.Tree
+import org.openrewrite.TreeVisitor
 import org.openrewrite.internal.InMemoryLargeSourceSet
 import org.openrewrite.marker.SearchResult
 import org.slf4j.LoggerFactory
@@ -35,13 +37,21 @@ class RecipeExecutionService {
                 val matches = mutableListOf<String>()
                 val changes = mutableListOf<String>()
 
-                // Check for SearchResult markers on the 'after' tree
+                // Collect SearchResult markers from ALL nodes in the AST tree,
+                // not just the top-level SourceFile markers. SearchResult.found()
+                // adds markers to individual AST nodes (e.g., J.ClassDeclaration),
+                // so we must walk the full tree to find them.
                 val afterFile = result.after
                 if (afterFile != null) {
-                    val searchResults = afterFile.markers.findAll(SearchResult::class.java)
-                    for (marker in searchResults) {
-                        marker.description?.let { matches.add(it) }
+                    val collector = object : TreeVisitor<Tree, InMemoryExecutionContext>() {
+                        override fun preVisit(tree: Tree, ctx: InMemoryExecutionContext): Tree? {
+                            tree.markers.findAll(SearchResult::class.java).forEach { marker ->
+                                marker.description?.let { matches.add(it) }
+                            }
+                            return super.preVisit(tree, ctx)
+                        }
                     }
+                    collector.visit(afterFile, ctx)
                 }
 
                 // Capture diff text
