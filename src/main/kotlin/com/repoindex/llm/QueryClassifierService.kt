@@ -27,6 +27,14 @@ class QueryClassifierService(
     }
 
     fun classify(query: String): ClassificationResult {
+        // Fast path: deterministic keyword matching before LLM classification.
+        // This handles common queries reliably even when the LLM returns verbose responses.
+        val keywordMatch = classifyByKeywords(query)
+        if (keywordMatch != null) {
+            log.info("Keyword-based classification: {} with recipes {}", keywordMatch.strategy, keywordMatch.recipeIds)
+            return keywordMatch
+        }
+
         val catalogDescription = recipeCatalog.toCatalogDescription()
 
         val prompt = """
@@ -144,6 +152,42 @@ class QueryClassifierService(
             else -> {
                 ClassificationResult(strategy = ClassificationResult.Strategy.GENERATE)
             }
+        }
+    }
+
+    /**
+     * Deterministic keyword-based classifier. Scores each catalog entry by how many
+     * of its keywords appear in the query. Returns CATALOG for a single strong match,
+     * COMPOSE if two entries match equally well, or null to fall through to LLM.
+     */
+    private fun classifyByKeywords(query: String): ClassificationResult? {
+        val lowerQuery = query.lowercase()
+
+        val scores = recipeCatalog.entries.map { entry ->
+            val score = entry.keywords.count { keyword -> lowerQuery.contains(keyword.lowercase()) }
+            entry to score
+        }.filter { it.second > 0 }
+            .sortedByDescending { it.second }
+
+        if (scores.isEmpty()) return null
+
+        val topScore = scores.first().second
+        val topMatches = scores.filter { it.second == topScore }
+
+        return when {
+            topMatches.size == 1 -> {
+                ClassificationResult(
+                    strategy = ClassificationResult.Strategy.CATALOG,
+                    recipeIds = listOf(topMatches.first().first.id)
+                )
+            }
+            topMatches.size == 2 -> {
+                ClassificationResult(
+                    strategy = ClassificationResult.Strategy.COMPOSE,
+                    recipeIds = topMatches.map { it.first.id }
+                )
+            }
+            else -> null // Ambiguous — let the LLM decide
         }
     }
 }
