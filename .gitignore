@@ -1,10 +1,10 @@
 .gradle/
 build/
-!gradle/wrapper/gradle-wrapper.jar
 *.class
 *.jar
 *.war
 *.ear
+!gradle/wrapper/gradle-wrapper.jar
 *.iml
 *.ipr
 *.iws

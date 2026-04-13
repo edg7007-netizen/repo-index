@@ -46,33 +46,30 @@ User Query → LLM generates OpenRewrite Recipe → Compile → Execute against 
 ## Prerequisites
 
 - **JDK 21** or later
-- **Ollama** running locally (default: `http://localhost:11434`)
+- **Docker** installed and running (for automatic Ollama startup)
 - A code model pulled in Ollama (e.g., `codellama:13b`)
 
 ## Quick Start
 
-### 1. Install & start Ollama
-
-```bash
-# Install Ollama (macOS/Linux)
-curl -fsSL https://ollama.com/install.sh | sh
-
-# Pull a code-focused model
-ollama pull codellama:13b
-```
-
-### 2. Run the application
+### 1. Run the application
 
 ```bash
 # Clone this repo
 git clone https://github.com/edg7007-netizen/repo-index.git
 cd repo-index
 
-# Run with Gradle
+# Run with Gradle — Ollama starts automatically via Docker Compose
 ./gradlew bootRun
 ```
 
-### 3. Open the chat UI
+Spring Boot's Docker Compose integration will automatically start Ollama when you run the application and stop it when you shut down. No manual Ollama setup needed!
+
+> **Note:** The first run will pull the Ollama Docker image, which may take a few minutes. You'll also need to pull a model into Ollama once it's running:
+> ```bash
+> docker exec -it $(docker ps -qf "ancestor=ollama/ollama") ollama pull codellama:13b
+> ```
+
+### 2. Open the chat UI
 
 Navigate to [http://localhost:8080](http://localhost:8080)
 
@@ -80,14 +77,14 @@ Navigate to [http://localhost:8080](http://localhost:8080)
 2. Select the repository from the sidebar
 3. Ask questions about the code!
 
-### Docker Compose
+### Docker Compose (production deployment)
 
 ```bash
 # Set the path to your repositories
 export REPOS_PATH=/path/to/your/repos
 
-# Start everything
-docker compose up --build
+# Start the full stack (app + Ollama)
+docker compose -f docker-compose.yml up --build
 ```
 
 ## Usage Examples

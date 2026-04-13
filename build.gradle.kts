@@ -52,6 +52,9 @@ dependencies {
     // Kotlin scripting for dynamic recipe compilation
     implementation("org.jetbrains.kotlin:kotlin-scripting-jsr223")
 
+    // Spring Boot Docker Compose (auto-starts Ollama during dev)
+    developmentOnly("org.springframework.boot:spring-boot-docker-compose")
+
     // Testing
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

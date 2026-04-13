@@ -9,6 +9,9 @@ spring:
         options:
           temperature: 0.2
           num-predict: 4096
+  docker:
+    compose:
+      lifecycle-management: start-and-stop
   threads:
     virtual:
       enabled: true
