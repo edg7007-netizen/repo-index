@@ -68,6 +68,29 @@ class RecipeGeneratorService(
             |$error
             |```
             |
+            |## Important API Rules
+            |- `JavaIsoVisitor` does NOT have a generic `visit` method. Override specific methods like
+            |  `visitClassDeclaration`, `visitMethodDeclaration`, `visitCompilationUnit`, etc.
+            |- Each visitor method must return the SAME type it receives (e.g. `visitClassDeclaration` returns `J.ClassDeclaration`)
+            |- Always call `super.visitXxx(node, p)` first, then return the result or a marked version
+            |- Use `SearchResult.found(node, "description")` to mark findings
+            |
+            |## Working Example
+            |```kotlin
+            |class CountClassesRecipe : Recipe() {
+            |    override fun getDisplayName() = "Count Classes"
+            |    override fun getDescription() = "Counts class declarations."
+            |    override fun getVisitor(): TreeVisitor<*, ExecutionContext> {
+            |        return object : JavaIsoVisitor<ExecutionContext>() {
+            |            override fun visitClassDeclaration(classDecl: J.ClassDeclaration, p: ExecutionContext): J.ClassDeclaration {
+            |                val cd = super.visitClassDeclaration(classDecl, p)
+            |                return SearchResult.found(cd, "Class: ${'$'}{cd.simpleName}")
+            |            }
+            |        }
+            |    }
+            |}
+            |```
+            |
             |## Instructions
             |Fix the code to resolve the compilation error. Return ONLY the corrected Kotlin code.
             |This is attempt $attempt. Make sure the fix is correct.
@@ -130,18 +153,39 @@ class RecipeGeneratorService(
             |  `J.Block`, `J.If`, `J.ForLoop`, `J.Return`, `J.Literal`, `J.NewClass`
             |- `JavaType.FullyQualified` for type information
             |- `TreeVisitor.Cursor` for navigating the tree context
-            |- Use `SearchResult.found()` marker to mark found elements
+            |- Use `SearchResult.found(tree, "description")` marker to mark found elements
             |- Access type info via `tree.type`, `method.methodType`, etc.
             |
-            |For collecting results, add findings to the ExecutionContext:
+            |IMPORTANT: `JavaIsoVisitor` does NOT have a generic `visit` method. You MUST override
+            |specific visitor methods. Each visitor method receives the specific LST node type and
+            |must return the SAME type. The correct method signatures are:
+            |
+            |- `override fun visitClassDeclaration(classDecl: J.ClassDeclaration, p: ExecutionContext): J.ClassDeclaration`
+            |- `override fun visitMethodDeclaration(method: J.MethodDeclaration, p: ExecutionContext): J.MethodDeclaration`
+            |- `override fun visitCompilationUnit(cu: J.CompilationUnit, p: ExecutionContext): J.CompilationUnit`
+            |- `override fun visitVariableDeclarations(multiVariable: J.VariableDeclarations, p: ExecutionContext): J.VariableDeclarations`
+            |- `override fun visitMethodInvocation(method: J.MethodInvocation, p: ExecutionContext): J.MethodInvocation`
+            |- `override fun visitAnnotation(annotation: J.Annotation, p: ExecutionContext): J.Annotation`
+            |- `override fun visitImport(import_: J.Import, p: ExecutionContext): J.Import`
+            |
+            |Here is a complete working example that counts classes:
             |```kotlin
-            |executionContext.putMessage("finding", "description of what was found")
+            |class CountClassesRecipe : Recipe() {
+            |    override fun getDisplayName() = "Count Classes"
+            |    override fun getDescription() = "Counts class declarations."
+            |    override fun getVisitor(): TreeVisitor<*, ExecutionContext> {
+            |        return object : JavaIsoVisitor<ExecutionContext>() {
+            |            override fun visitClassDeclaration(classDecl: J.ClassDeclaration, p: ExecutionContext): J.ClassDeclaration {
+            |                val cd = super.visitClassDeclaration(classDecl, p)
+            |                return SearchResult.found(cd, "Class: ${'$'}{cd.simpleName}")
+            |            }
+            |        }
+            |    }
+            |}
             |```
             |
-            |Or use markers:
-            |```kotlin
-            |SearchResult.found(tree, "description")
-            |```
+            |NEVER use `override fun visit(...)` — it does not exist.
+            |Always call `super.visitXxx(node, p)` first, then return the result (or a marked version).
         """.trimMargin()
     }
 }
