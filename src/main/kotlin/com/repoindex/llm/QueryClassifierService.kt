@@ -20,9 +20,10 @@ class QueryClassifierService(
 
     data class ClassificationResult(
         val strategy: Strategy,
-        val recipeIds: List<String> = emptyList()
+        val recipeIds: List<String> = emptyList(),
+        val searchTerms: List<String> = emptyList()
     ) {
-        enum class Strategy { CATALOG, COMPOSE, GENERATE }
+        enum class Strategy { CATALOG, COMPOSE, ANALYZE, GENERATE }
     }
 
     fun classify(query: String): ClassificationResult {
@@ -48,16 +49,28 @@ class QueryClassifierService(
             |2. If MULTIPLE recipes combined can answer the query:
             |   COMPOSE: <recipe-id-1>, <recipe-id-2>
             |
-            |3. If NO existing recipe can answer the query:
+            |3. If the query is a broad, domain-specific or conceptual question (e.g., "how do we manage
+            |   currencies?", "what is the error handling strategy?", "how is authentication implemented?"),
+            |   respond with ANALYZE followed by relevant search terms that should be used to filter code
+            |   analysis findings. The search terms should be type names, annotation names, import prefixes,
+            |   method name fragments, or keywords that relate to the concept:
+            |   ANALYZE: <term1>, <term2>, <term3>, ...
+            |
+            |4. If NO existing recipe or analysis strategy can answer the query:
             |   GENERATE
             |
             |Rules:
-            |- Prefer CATALOG over COMPOSE, and COMPOSE over GENERATE.
+            |- Prefer CATALOG over COMPOSE, COMPOSE over ANALYZE, and ANALYZE over GENERATE.
             |- Only select recipes that are truly relevant to the query.
             |- If the query asks about "classes" or "how many classes", use list-classes.
             |- If the query asks about both classes AND methods, use COMPOSE with both recipe IDs.
             |- If the query needs specific filtering (e.g., "classes that have more than 5 methods"),
             |  use GENERATE because pre-built recipes can't filter that way.
+            |- Use ANALYZE for open-ended questions about how the codebase handles a domain concept
+            |  (e.g., currencies, authentication, logging, caching, error handling).
+            |  Include 5-15 search terms: type names (e.g., Currency, Money, BigDecimal),
+            |  package prefixes (e.g., javax.money, java.util.Currency), and method name
+            |  fragments (e.g., convert, exchange, format).
             |- Respond with ONLY the classification line, nothing else.
         """.trimMargin()
 
@@ -110,6 +123,21 @@ class QueryClassifierService(
                     )
                 } else {
                     log.warn("COMPOSE had no valid recipe IDs, falling back to GENERATE")
+                    ClassificationResult(strategy = ClassificationResult.Strategy.GENERATE)
+                }
+            }
+            trimmed.startsWith("ANALYZE:") -> {
+                val terms = trimmed.removePrefix("ANALYZE:").trim()
+                    .split(",")
+                    .map { it.trim() }
+                    .filter { it.isNotBlank() }
+                if (terms.isNotEmpty()) {
+                    ClassificationResult(
+                        strategy = ClassificationResult.Strategy.ANALYZE,
+                        searchTerms = terms
+                    )
+                } else {
+                    log.warn("ANALYZE had no search terms, falling back to GENERATE")
                     ClassificationResult(strategy = ClassificationResult.Strategy.GENERATE)
                 }
             }

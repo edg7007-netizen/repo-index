@@ -54,12 +54,70 @@ class QueryOrchestrator(
                 executeComposedAndFormat(entries.map { it.recipe }, query, repo,
                     catalogRecipeIds = entries.map { it.id })
             }
+            Strategy.ANALYZE -> {
+                // Tier 2.5: Run broad recipes and filter findings by search terms
+                log.info("ANALYZE strategy with search terms: {}", classification.searchTerms)
+                analyzeAndFormat(query, repo, classification.searchTerms)
+            }
             Strategy.GENERATE -> {
                 // Tier 3: Fall back to LLM-generated recipe
                 log.info("No catalog match — falling back to dynamic recipe generation")
                 generateAndExecute(query, repo)
             }
         }
+    }
+
+    /**
+     * Tier 2.5: Run broad analysis recipes, filter findings by search terms,
+     * and let the LLM synthesize a coherent answer from the filtered results.
+     */
+    private fun analyzeAndFormat(
+        query: String,
+        repo: IndexedRepository,
+        searchTerms: List<String>
+    ): QueryResponse {
+        // Run a broad set of recipes to gather comprehensive findings
+        val analysisRecipeIds = listOf(
+            "list-classes", "find-fields", "list-imports",
+            "find-annotations", "find-inheritance", "list-methods"
+        )
+        val recipes = analysisRecipeIds.mapNotNull { recipeCatalog.findById(it)?.recipe }
+
+        val allResults = mutableListOf<RecipeResult>()
+        for (recipe in recipes) {
+            try {
+                allResults.addAll(recipeExecutionService.executeRecipe(recipe, repo))
+            } catch (e: Exception) {
+                log.warn("Analysis recipe failed: {}", e.message)
+            }
+        }
+
+        // Filter findings to only those matching search terms (case-insensitive)
+        val lowerTerms = searchTerms.map { it.lowercase() }
+        val filteredResults = allResults.mapNotNull { result ->
+            val matchingFindings = result.matches.filter { finding ->
+                val lowerFinding = finding.lowercase()
+                lowerTerms.any { term -> lowerFinding.contains(term.lowercase()) }
+            }
+            if (matchingFindings.isNotEmpty()) {
+                result.copy(matches = matchingFindings)
+            } else {
+                null
+            }
+        }
+
+        log.info(
+            "ANALYZE: {} total findings filtered to {} relevant findings using {} terms",
+            allResults.sumOf { it.matches.size },
+            filteredResults.sumOf { it.matches.size },
+            searchTerms.size
+        )
+
+        return buildResponse(
+            query,
+            filteredResults,
+            generatedRecipe = "ANALYZE strategy with terms: ${searchTerms.joinToString(", ")}"
+        )
     }
 
     /**
