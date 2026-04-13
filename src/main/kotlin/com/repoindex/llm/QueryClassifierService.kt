@@ -90,7 +90,27 @@ class QueryClassifierService(
                 .call()
                 .content()?.trim() ?: "GENERATE"
 
-            parseClassification(response)
+            val classification = parseClassification(response)
+
+            // Guard: if LLM returns CATALOG but the query has no keyword overlap with
+            // the matched recipe, the classification is likely wrong (e.g., a domain-specific
+            // question like "are we managing currencies?" being mapped to find-annotations).
+            if (classification.strategy == ClassificationResult.Strategy.CATALOG) {
+                val entry = recipeCatalog.findById(classification.recipeIds.first())
+                if (entry != null) {
+                    val lowerQuery = query.lowercase()
+                    val hasOverlap = entry.keywords.any { kw -> lowerQuery.contains(kw.lowercase()) }
+                    if (!hasOverlap) {
+                        log.warn(
+                            "LLM returned CATALOG:{} but query has no keyword overlap — rejecting",
+                            entry.id
+                        )
+                        return ClassificationResult(strategy = ClassificationResult.Strategy.GENERATE)
+                    }
+                }
+            }
+
+            classification
         } catch (e: Exception) {
             log.warn("Classification failed, falling back to GENERATE: {}", e.message)
             ClassificationResult(strategy = ClassificationResult.Strategy.GENERATE)
