@@ -71,6 +71,14 @@ class RecipeGeneratorService(
             |## Instructions
             |Fix the code to resolve the compilation error. Return ONLY the corrected Kotlin code.
             |This is attempt $attempt. Make sure the fix is correct.
+            |
+            |The corrected code must:
+            |1. Be a COMPLETE, compilable Kotlin class that extends `org.openrewrite.Recipe`
+            |2. Do NOT include a `package` declaration — the code will be evaluated as a Kotlin script
+            |3. Do NOT include import statements for `org.openrewrite.*`, `org.openrewrite.java.*`,
+            |   `org.openrewrite.java.tree.*`, `org.openrewrite.kotlin.tree.*`, or
+            |   `org.openrewrite.marker.SearchResult` — these are already imported
+            |4. Include ALL closing braces and ensure no code is truncated
         """.trimMargin()
 
         val response = chatClient.prompt()

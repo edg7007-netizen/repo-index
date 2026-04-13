@@ -18,6 +18,14 @@ class RecipeCompilerService {
 
     fun compile(kotlinCode: String): CompilationResult {
         log.info("Compiling generated recipe code ({} chars)", kotlinCode.length)
+        log.debug("Generated code:\n{}", kotlinCode)
+
+        // Validate the generated code before attempting compilation
+        val validationError = validateGeneratedCode(kotlinCode)
+        if (validationError != null) {
+            log.warn("Generated code validation failed: {}", validationError)
+            return CompilationResult(success = false, error = validationError)
+        }
 
         return try {
             val engine = ScriptEngineManager().getEngineByExtension("kts")
@@ -52,6 +60,7 @@ class RecipeCompilerService {
         // We wrap it in a script that instantiates it.
         val cleanedCode = sanitizeGeneratedCode(kotlinCode)
         val className = extractClassName(cleanedCode)
+            ?: error("Could not find class name — this should not happen after validation")
 
         return """
             |import org.openrewrite.*
@@ -91,10 +100,31 @@ class RecipeCompilerService {
             .trim()
     }
 
-    private fun extractClassName(code: String): String {
+    /**
+     * Validates that generated code looks like a plausible Recipe class before attempting compilation.
+     * Returns an error message if invalid, null if valid.
+     */
+    private fun validateGeneratedCode(code: String): String? {
+        val trimmed = code.trim()
+        if (trimmed.length < 50) {
+            return "Generated code is too short (${trimmed.length} chars) to be a valid Recipe class"
+        }
+        if (!trimmed.contains("class ")) {
+            return "Generated code does not contain a class definition"
+        }
+        if (!trimmed.contains("Recipe")) {
+            return "Generated code does not reference Recipe — expected a Recipe subclass"
+        }
+        // Check for class name extractability
+        if (extractClassName(trimmed) == null) {
+            return "Could not find a class declaration (expected 'class Name : ...' or 'class Name(...)')"
+        }
+        return null
+    }
+
+    private fun extractClassName(code: String): String? {
         val classPattern = Regex("class\\s+(\\w+)\\s*[:(]")
         val match = classPattern.find(code)
         return match?.groupValues?.get(1)
-            ?: throw IllegalArgumentException("Could not find class name in generated code")
     }
 }
