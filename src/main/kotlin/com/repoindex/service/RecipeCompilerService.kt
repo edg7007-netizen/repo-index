@@ -63,6 +63,7 @@ class RecipeCompilerService {
             ?: error("Could not find class name — this should not happen after validation")
 
         return """
+            |@file:Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN", "NULLABILITY_MISMATCH_BASED_ON_JAVA_ANNOTATIONS", "TYPE_MISMATCH")
             |import org.openrewrite.*
             |import org.openrewrite.java.*
             |import org.openrewrite.java.tree.*

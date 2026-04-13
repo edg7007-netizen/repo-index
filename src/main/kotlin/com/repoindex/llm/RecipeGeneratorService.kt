@@ -83,8 +83,8 @@ class RecipeGeneratorService(
             |    override fun getVisitor(): TreeVisitor<*, ExecutionContext> {
             |        return object : JavaIsoVisitor<ExecutionContext>() {
             |            override fun visitClassDeclaration(classDecl: J.ClassDeclaration, p: ExecutionContext): J.ClassDeclaration {
-            |                val cd = super.visitClassDeclaration(classDecl, p)
-            |                return SearchResult.found(cd, "Class: ${'$'}{cd.simpleName}")
+            |                val cd = super.visitClassDeclaration(classDecl, p)!!
+            |                return SearchResult.found(cd, "Class: ${'$'}{cd.simpleName}") as J.ClassDeclaration
             |            }
             |        }
             |    }
@@ -176,8 +176,8 @@ class RecipeGeneratorService(
             |    override fun getVisitor(): TreeVisitor<*, ExecutionContext> {
             |        return object : JavaIsoVisitor<ExecutionContext>() {
             |            override fun visitClassDeclaration(classDecl: J.ClassDeclaration, p: ExecutionContext): J.ClassDeclaration {
-            |                val cd = super.visitClassDeclaration(classDecl, p)
-            |                return SearchResult.found(cd, "Class: ${'$'}{cd.simpleName}")
+            |                val cd = super.visitClassDeclaration(classDecl, p)!!
+            |                return SearchResult.found(cd, "Class: ${'$'}{cd.simpleName}") as J.ClassDeclaration
             |            }
             |        }
             |    }
@@ -186,6 +186,9 @@ class RecipeGeneratorService(
             |
             |NEVER use `override fun visit(...)` — it does not exist.
             |Always call `super.visitXxx(node, p)` first, then return the result (or a marked version).
+            |IMPORTANT: OpenRewrite is a Java library. `super.visitXxx()` and `SearchResult.found()` return
+            |platform types that Kotlin may treat as nullable. Always use `!!` on `super.visitXxx()` calls
+            |and cast the result of `SearchResult.found()` to the expected non-null type (e.g. `as J.ClassDeclaration`).
         """.trimMargin()
     }
 }
