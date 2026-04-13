@@ -24,6 +24,13 @@ class RepositoryIndexService(
     private val log = LoggerFactory.getLogger(javaClass)
     private val repositories = ConcurrentHashMap<String, IndexedRepository>()
 
+    /** Set by Spring after AnalysisService is initialized (avoids circular dependency). */
+    private var analysisService: AnalysisService? = null
+
+    fun setAnalysisService(service: AnalysisService) {
+        this.analysisService = service
+    }
+
     fun indexRepository(repoPath: String): RepositorySummary {
         val path = Path.of(repoPath).toAbsolutePath().normalize()
         require(Files.isDirectory(path)) { "Path does not exist or is not a directory: $repoPath" }
@@ -70,6 +77,13 @@ class RepositoryIndexService(
         log.info("Indexed repository '{}': {} files parsed ({} total source files)",
             repo.name, parsedFiles.size, sourceFiles.size)
 
+        // Auto-analyze: run standard recipe suite to pre-compute facts
+        try {
+            analysisService?.analyzeRepository(repo)
+        } catch (e: Exception) {
+            log.warn("Auto-analysis failed for '{}': {}", repo.name, e.message)
+        }
+
         return repo.toSummary()
     }
 
@@ -77,7 +91,13 @@ class RepositoryIndexService(
 
     fun listRepositories(): List<RepositorySummary> = repositories.values.map { it.toSummary() }
 
-    fun removeRepository(id: String): Boolean = repositories.remove(id) != null
+    fun removeRepository(id: String): Boolean {
+        val removed = repositories.remove(id) != null
+        if (removed) {
+            analysisService?.removeAnalysis(id)
+        }
+        return removed
+    }
 
     private fun collectSourceFiles(root: Path): List<Path> {
         val maxSizeBytes = properties.index.maxFileSizeKb * 1024L
